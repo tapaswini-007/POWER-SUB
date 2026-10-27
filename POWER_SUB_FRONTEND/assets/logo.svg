@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" fill="none" aria-label="POWER-SUB Logo">
+  <rect width="40" height="40" rx="8" fill="#0d2b45"/>
+  <path d="M12 21h7l-3 11 12-14h-7l3-10-12 13z" fill="#00b4d8"/>
+  <circle cx="28" cy="12" r="3" fill="#2ec4b6"/>
+  <circle cx="12" cy="28" r="2.5" fill="#2ec4b6" opacity="0.6"/>
+</svg>

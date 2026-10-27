@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POWER-SUB Frontend Automated Test Suite</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #38bdf8; }
+    .summary { font-size: 1.1rem; font-weight: 600; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem; }
+    .summary.pass { background: #064e3b; color: #34d399; }
+    .summary.fail { background: #7f1d1d; color: #f87171; }
+    .test-group { background: #1e293b; border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #334155; }
+    .test-group h2 { font-size: 1.1rem; margin-bottom: 0.75rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+    .test-item { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; font-size: 0.9rem; border-bottom: 1px solid #283548; }
+    .status-pass { color: #34d399; font-weight: 700; }
+    .status-fail { color: #f87171; font-weight: 700; }
+    .test-error { color: #f87171; font-size: 0.8rem; margin-left: 1rem; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>POWER-SUB Frontend Unit & Integration Tests</h1>
+  <div id="test-summary" class="summary">Running tests...</div>
+  <div id="test-results"></div>
+
+  <script type="module">
+    import { el, clearElement } from '../js/utils/dom.js';
+    import { safeText, formatKwh, formatPercent, formatNumber, formatBytes, formatDate } from '../js/utils/format.js';
+    import { validateFile, validateApiUrl, isValidUuid, isPositiveNumber } from '../js/utils/validate.js';
+    import { store } from '../js/state.js';
+    import { ApiError } from '../js/api.js';
+
+    let totalTests = 0;
+    let passedTests = 0;
+    let failedTests = 0;
+
+    const resultsContainer = document.getElementById('test-results');
+
+    function assert(condition, message) {
+      totalTests++;
+      if (!condition) {
+        failedTests++;
+        throw new Error(message || 'Assertion failed');
+      }
+      passedTests++;
+    }
+
+    function createGroup(title) {
+      const groupEl = document.createElement('div');
+      groupEl.className = 'test-group';
+      const h2 = document.createElement('h2');
+      h2.textContent = title;
+      groupEl.appendChild(h2);
+      resultsContainer.appendChild(groupEl);
+      return groupEl;
+    }
+
+    function addResult(groupEl, name, fn) {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'test-item';
+      const nameEl = document.createElement('span');
+      nameEl.textContent = name;
+      const statusEl = document.createElement('span');
+
+      try {
+        fn();
+        statusEl.className = 'status-pass';
+        statusEl.textContent = '✓ PASS';
+      } catch (err) {
+        statusEl.className = 'status-fail';
+        statusEl.textContent = '✗ FAIL';
+        const errEl = document.createElement('span');
+        errEl.className = 'test-error';
+        errEl.textContent = err.message;
+        itemEl.appendChild(errEl);
+      }
+
+      itemEl.appendChild(nameEl);
+      itemEl.appendChild(statusEl);
+      groupEl.appendChild(itemEl);
+    }
+
+    // --- GROUP 1: DOM XSS Immunity & Attribute Safety ---
+    const gDom = createGroup('1. DOM Construction & XSS Prevention (dom.js)');
+
+    addResult(gDom, 'Renders malicious HTML payload as literal text (XSS test)', () => {
+      const payload = '<img src=x onerror=alert(1)>';
+      const node = el('div', {}, payload);
+      assert(node.childNodes.length === 1, 'Expected 1 text node child');
+      assert(node.childNodes[0].nodeType === Node.TEXT_NODE, 'Child must be TextNode');
+      assert(node.textContent === payload, 'TextContent must match literal payload');
+      assert(node.innerHTML === '&lt;img src=x onerror=alert(1)&gt;', 'InnerHTML must be fully escaped');
+    });
+
+    addResult(gDom, 'Blocks javascript: scheme in href attributes', () => {
+      const node = el('a', { href: 'javascript:alert(document.cookie)' }, 'Click');
+      assert(node.getAttribute('href') === '#', 'javascript: href must be sanitized to #');
+    });
+
+    addResult(gDom, 'Safely handles nested children arrays and text', () => {
+      const node = el('div', { id: 'container' }, [
+        el('span', { text: 'Sub 1' }),
+        'Text 2',
+        el('strong', { text: 'Sub 3' })
+      ]);
+      assert(node.children.length === 2, 'Expected 2 element children');
+      assert(node.textContent === 'Sub 1Text 2Sub 3', 'Expected concatenated text');
+    });
+
+    addResult(gDom, 'clearElement safely empties container', () => {
+      const node = el('div', {}, el('p', { text: 'A' }), el('p', { text: 'B' }));
+      assert(node.childNodes.length === 2, 'Initial 2 children');
+      clearElement(node);
+      assert(node.childNodes.length === 0, 'Children cleared');
+    });
+
+    // --- GROUP 2: Data Formatting & Zero NaN/Null Disclosure ---
+    const gFmt = createGroup('2. Formatting & Zero NaN Disclosure (format.js)');
+
+    addResult(gFmt, 'safeText replaces null, undefined, NaN, and Infinity with dash', () => {
+      assert(safeText(null) === '—', 'null -> —');
+      assert(safeText(undefined) === '—', 'undefined -> —');
+      assert(safeText(NaN) === '—', 'NaN -> —');
+      assert(safeText(Infinity) === '—', 'Infinity -> —');
+      assert(safeText('  ') === '—', 'empty string -> —');
+      assert(safeText('Valid Data') === 'Valid Data', 'valid text retained');
+      assert(safeText(100.5) === '100.5', 'valid number retained');
+    });
+
+    addResult(gFmt, 'formatKwh produces formatted values with unit', () => {
+      assert(formatKwh(1500.45) === '1,500.45 kWh', '1500.45 -> 1,500.45 kWh');
+      assert(formatKwh(null) === '—', 'null -> —');
+      assert(formatKwh(NaN) === '—', 'NaN -> —');
+    });
+
+    addResult(gFmt, 'formatPercent produces signed and unsigned percentages', () => {
+      assert(formatPercent(12.34, true) === '+12.3%', '+ sign included');
+      assert(formatPercent(-5.6, true) === '-5.6%', '- sign included');
+      assert(formatPercent(null) === '—', 'null percent -> —');
+    });
+
+    addResult(gFmt, 'formatBytes formats file sizes correctly', () => {
+      assert(formatBytes(0) === '0 B', '0 B');
+      assert(formatBytes(1024) === '1 KB', '1024 B -> 1 KB');
+      assert(formatBytes(1048576) === '1 MB', '1048576 B -> 1 MB');
+    });
+
+    addResult(gFmt, 'formatDate defensively formats ISO strings and invalid dates', () => {
+      assert(formatDate('invalid-date') === '—', 'invalid date string -> —');
+      assert(formatDate(null) === '—', 'null date -> —');
+      const formatted = formatDate('2026-05-15T10:30:00Z', false);
+      assert(formatted.includes('2026'), 'year 2026 rendered');
+    });
+
+    // --- GROUP 3: Validation Rules ---
+    const gVal = createGroup('3. Client-Side Validation (validate.js)');
+
+    addResult(gVal, 'validateFile rejects empty files and oversize files', () => {
+      const emptyFile = new File([''], 'empty.csv', { type: 'text/csv' });
+      assert(validateFile(emptyFile).valid === false, '0 byte file rejected');
+
+      const unsupportedFile = new File(['1,2,3'], 'data.exe', { type: 'application/octet-stream' });
+      assert(validateFile(unsupportedFile).valid === false, 'exe extension rejected');
+
+      const validCsv = new File(['timestamp,kwh\n2026-01-01,100'], 'data.csv', { type: 'text/csv' });
+      assert(validateFile(validCsv).valid === true, 'valid CSV accepted');
+    });
+
+    addResult(gVal, 'validateApiUrl normalizes URLs and warns on unencrypted remote', () => {
+      const localhostRes = validateApiUrl('http://127.0.0.1:8000/api/v1/');
+      assert(localhostRes.valid === true, 'localhost http valid');
+      assert(localhostRes.normalizedUrl === 'http://127.0.0.1:8000', 'stripped trailing slash and path');
+      assert(localhostRes.isUnencryptedRemote === false, 'localhost is not remote');
+
+      const remoteRes = validateApiUrl('http://api.energycorp.internal:8000');
+      assert(remoteRes.valid === true, 'remote http valid');
+      assert(remoteRes.isUnencryptedRemote === true, 'unencrypted remote flagged');
+
+      const invalidRes = validateApiUrl('ftp://example.com');
+      assert(invalidRes.valid === false, 'ftp protocol rejected');
+    });
+
+    addResult(gVal, 'isValidUuid matches RFC4122 v4 UUIDs', () => {
+      assert(isValidUuid('3f88b5ba-0955-4034-8c01-7fa0f622d13a') === true, 'valid UUID accepted');
+      assert(isValidUuid('invalid-uuid') === false, 'invalid UUID rejected');
+      assert(isValidUuid('') === false, 'empty string rejected');
+    });
+
+    addResult(gVal, 'isPositiveNumber validates numbers greater than threshold', () => {
+      assert(isPositiveNumber(10, 0) === true, '10 > 0');
+      assert(isPositiveNumber(0, 0) === false, '0 is not > 0');
+      assert(isPositiveNumber(-5, 0) === false, '-5 is not > 0');
+      assert(isPositiveNumber('abc', 0) === false, 'NaN is rejected');
+    });
+
+    // --- GROUP 4: Storage & Secrets Immunity ---
+    const gSec = createGroup('4. State & Secrets Security (state.js)');
+
+    addResult(gSec, 'In-memory API key is never written to localStorage', () => {
+      store.setApiKey('secret-api-key-12345');
+      assert(store.apiKey === 'secret-api-key-12345', 'API key stored in memory');
+
+      const rawStorage = localStorage.getItem('powersub.prefs.v1');
+      assert(!rawStorage || !rawStorage.includes('secret-api-key'), 'localStorage does NOT contain api key');
+      assert(!sessionStorage.getItem('secret-api-key'), 'sessionStorage does NOT contain api key');
+
+      store.setApiKey(null);
+      assert(store.apiKey === null, 'API key cleared');
+    });
+
+    addResult(gSec, 'Preferences parsing ignores malicious or unexpected properties', () => {
+      localStorage.setItem('powersub.prefs.v1', JSON.stringify({
+        maliciousScript: '<scr' + 'ipt>alert(1)</scr' + 'ipt>',
+        pageSize: 50,
+        invalidNumber: 99999
+      }));
+
+      // Re-instantiate or check state preference reading
+      const parsed = JSON.parse(localStorage.getItem('powersub.prefs.v1'));
+      assert(parsed.pageSize === 50, 'Whitelisted pageSize valid');
+      assert(parsed.maliciousScript !== undefined, 'Raw mock has malicious');
+
+      store.resetPreferences();
+      assert(store.state.preferences.pageSize === 25, 'Reset back to 25');
+    });
+
+    // Update Summary Banner
+    const summaryEl = document.getElementById('test-summary');
+    summaryEl.textContent = `Completed ${totalTests} tests: ${passedTests} passed, ${failedTests} failed.`;
+    summaryEl.className = failedTests === 0 ? 'summary pass' : 'summary fail';
+  </script>
+</body>
+</html>

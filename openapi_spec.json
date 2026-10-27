@@ -1,0 +1,1925 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "POWER-SUB: Energy Waste Detection & Intelligent Recommendations API",
+    "description": "Research backend API for energy consumption analysis, statistical and AI-based anomaly detection, and evidence-driven energy efficiency recommendations.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Root"
+        ],
+        "summary": "Root Pointer",
+        "description": "Root endpoint pointing to interactive documentation and health.",
+        "operationId": "root_pointer__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Get Health",
+        "description": "Check service health and database connectivity.",
+        "operationId": "get_health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload energy consumption file",
+        "description": "Upload a CSV, XLSX, XLS, or PDF energy consumption document. The file is securely streamed, validated by signature, preprocessed, and persisted to the internal database. The original file is removed after parsing.",
+        "operationId": "upload_energy_file_api_v1_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_energy_file_api_v1_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/datasets": {
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "List stored datasets",
+        "description": "Retrieve a paginated list of all active datasets with metadata.",
+        "operationId": "list_datasets_api_v1_datasets_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Maximum number of items to return",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum number of items to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Offset index for pagination",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Offset index for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/datasets/{dataset_id}": {
+      "get": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Get dataset details",
+        "description": "Retrieve detailed metadata and data quality metrics for a specific dataset ID.",
+        "operationId": "get_dataset_detail_api_v1_datasets__dataset_id__get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Datasets"
+        ],
+        "summary": "Delete dataset",
+        "description": "Permanently remove a dataset, its energy records, cached analysis results, and any associated generated report files.",
+        "operationId": "delete_dataset_api_v1_datasets__dataset_id__delete",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analysis/{dataset_id}": {
+      "get": {
+        "tags": [
+          "Analysis"
+        ],
+        "summary": "Analyze dataset consumption",
+        "description": "Compute descriptive consumption statistics, cost summaries, baseline comparisons, and identify records with unusually high energy consumption via robust z-scores.",
+        "operationId": "get_energy_analysis_api_v1_analysis__dataset_id__get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "baseline_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "historical_mean",
+                "historical_median",
+                "rolling_average",
+                "same_period_average",
+                "user_target"
+              ],
+              "type": "string",
+              "description": "Baseline comparison methodology",
+              "default": "historical_mean",
+              "title": "Baseline Method"
+            },
+            "description": "Baseline comparison methodology"
+          },
+          {
+            "name": "target_kwh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Target kWh for user_target baseline",
+              "title": "Target Kwh"
+            },
+            "description": "Target kWh for user_target baseline"
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "building",
+                    "department",
+                    "equipment"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional grouping dimension",
+              "title": "Group By"
+            },
+            "description": "Optional grouping dimension"
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Time aggregation granularity",
+              "title": "Granularity"
+            },
+            "description": "Time aggregation granularity"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnergyAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/anomalies/{dataset_id}": {
+      "post": {
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "Run AI anomaly detection",
+        "description": "Train an IsolationForest model on dataset features to flag unusual consumption patterns. Includes cyclical time features, guards against division-by-zero, and automatically falls back to a robust IQR rule-based detector if records are below the minimum threshold. Identical parameter configurations are cached deterministically.",
+        "operationId": "run_anomaly_detection_api_v1_anomalies__dataset_id__post",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnomalyDetectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnomalyDetectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "Get latest anomaly detection results",
+        "description": "Retrieve the most recent stored anomaly detection results for a dataset with pagination and filtering.",
+        "operationId": "get_latest_anomalies_api_v1_anomalies__dataset_id__get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "only_anomalies",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Filter output to only flagged anomalous records",
+              "default": false,
+              "title": "Only Anomalies"
+            },
+            "description": "Filter output to only flagged anomalous records"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Maximum number of records to return",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of records to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Offset index for pagination",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Offset index for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnomalyDetectionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recommendations/{dataset_id}": {
+      "get": {
+        "tags": [
+          "Recommendations"
+        ],
+        "summary": "Get intelligent energy efficiency recommendations",
+        "description": "Generate grounded, evidence-driven recommendations based on actual dataset observations. Evaluates off-hours base draw, persistent elevations above baseline, high-consuming entities, and data logging gaps. Financial savings are computed only when supported by dataset cost records or an explicit user-provided tariff.",
+        "operationId": "get_recommendations_api_v1_recommendations__dataset_id__get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "tariff_per_kwh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional electricity tariff in $/kWh for estimated savings calculations",
+              "title": "Tariff Per Kwh"
+            },
+            "description": "Optional electricity tariff in $/kWh for estimated savings calculations"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{dataset_id}/csv": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Download CSV energy report",
+        "description": "Export a formula-injection neutralized CSV report with anomaly classifications and UTF-8 BOM.",
+        "operationId": "download_csv_report_api_v1_reports__dataset_id__csv_get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "tariff_per_kwh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tariff Per Kwh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{dataset_id}/pdf": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Download publication-grade PDF report",
+        "description": "Export a publication-ready PDF containing executive summaries, non-GUI Matplotlib charts, and recommendations.",
+        "operationId": "download_pdf_report_api_v1_reports__dataset_id__pdf_get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "tariff_per_kwh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tariff Per Kwh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnomalyDetectionRequest": {
+        "properties": {
+          "contamination": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 0.5,
+                "minimum": 0.001
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contamination"
+          },
+          "sensitivity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sensitivity"
+          },
+          "n_estimators": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 50.0,
+            "title": "N Estimators",
+            "default": 200
+          },
+          "max_samples": {
+            "title": "Max Samples",
+            "default": "auto"
+          },
+          "random_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Random State"
+          },
+          "features": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Features"
+          },
+          "use_rule_fallback": {
+            "type": "boolean",
+            "title": "Use Rule Fallback",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "AnomalyDetectionRequest",
+        "description": "Parameters for AI-based anomaly detection.",
+        "example": {
+          "n_estimators": 200,
+          "sensitivity": "medium",
+          "use_rule_fallback": true
+        }
+      },
+      "AnomalyDetectionResponse": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "insufficient_data"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "model_info": {
+            "$ref": "#/components/schemas/ModelInfo"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AnomalySummary"
+          },
+          "anomalies": {
+            "items": {
+              "$ref": "#/components/schemas/AnomalyRecord"
+            },
+            "type": "array",
+            "title": "Anomalies"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "status",
+          "message",
+          "model_info",
+          "summary",
+          "anomalies",
+          "limitations"
+        ],
+        "title": "AnomalyDetectionResponse"
+      },
+      "AnomalyRecord": {
+        "properties": {
+          "row_id": {
+            "type": "integer",
+            "title": "Row Id"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "energy_kwh": {
+            "type": "number",
+            "title": "Energy Kwh"
+          },
+          "building": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Building"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment"
+          },
+          "is_anomaly": {
+            "type": "boolean",
+            "title": "Is Anomaly"
+          },
+          "anomaly_score": {
+            "type": "number",
+            "title": "Anomaly Score"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "normal"
+            ],
+            "title": "Severity"
+          },
+          "contributing_features": {
+            "items": {
+              "$ref": "#/components/schemas/ContributingFeature"
+            },
+            "type": "array",
+            "title": "Contributing Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_id",
+          "date",
+          "energy_kwh",
+          "is_anomaly",
+          "anomaly_score",
+          "severity"
+        ],
+        "title": "AnomalyRecord"
+      },
+      "AnomalySummary": {
+        "properties": {
+          "total_records": {
+            "type": "integer",
+            "title": "Total Records"
+          },
+          "anomalies_flagged": {
+            "type": "integer",
+            "title": "Anomalies Flagged"
+          },
+          "anomaly_percentage": {
+            "type": "number",
+            "title": "Anomaly Percentage"
+          },
+          "severity_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Severity Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_records",
+          "anomalies_flagged",
+          "anomaly_percentage",
+          "severity_counts"
+        ],
+        "title": "AnomalySummary"
+      },
+      "BaselineComparison": {
+        "properties": {
+          "baseline_method_used": {
+            "type": "string",
+            "title": "Baseline Method Used"
+          },
+          "baseline_kwh": {
+            "type": "number",
+            "title": "Baseline Kwh"
+          },
+          "total_actual_kwh": {
+            "type": "number",
+            "title": "Total Actual Kwh"
+          },
+          "overall_deviation_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Deviation Pct"
+          },
+          "baseline_status": {
+            "type": "string",
+            "title": "Baseline Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseline_method_used",
+          "baseline_kwh",
+          "total_actual_kwh",
+          "baseline_status"
+        ],
+        "title": "BaselineComparison"
+      },
+      "Body_upload_energy_file_api_v1_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "Energy consumption file (.csv, .xlsx, .xls, .pdf)"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name",
+            "description": "Sheet name for Excel workbooks"
+          },
+          "date_format_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Format Hint",
+            "description": "Optional date format string (e.g. %Y-%m-%d)"
+          },
+          "energy_unit": {
+            "type": "string",
+            "title": "Energy Unit",
+            "description": "Unit of energy in file ('kWh', 'Wh', 'MWh')",
+            "default": "kWh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_energy_file_api_v1_upload_post"
+      },
+      "ColumnMappingInfo": {
+        "properties": {
+          "detected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Detected"
+          },
+          "mapped": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Mapped"
+          },
+          "unmapped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unmapped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detected",
+          "mapped",
+          "unmapped"
+        ],
+        "title": "ColumnMappingInfo",
+        "description": "Detected and mapped columns."
+      },
+      "ConsumptionStats": {
+        "properties": {
+          "total_kwh": {
+            "type": "number",
+            "title": "Total Kwh"
+          },
+          "mean_kwh": {
+            "type": "number",
+            "title": "Mean Kwh"
+          },
+          "median_kwh": {
+            "type": "number",
+            "title": "Median Kwh"
+          },
+          "min_kwh": {
+            "type": "number",
+            "title": "Min Kwh"
+          },
+          "max_kwh": {
+            "type": "number",
+            "title": "Max Kwh"
+          },
+          "std_kwh": {
+            "type": "number",
+            "title": "Std Kwh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_kwh",
+          "mean_kwh",
+          "median_kwh",
+          "min_kwh",
+          "max_kwh",
+          "std_kwh"
+        ],
+        "title": "ConsumptionStats"
+      },
+      "ContributingFeature": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "actual_value": {
+            "type": "number",
+            "title": "Actual Value"
+          },
+          "dataset_median": {
+            "type": "number",
+            "title": "Dataset Median"
+          },
+          "deviation": {
+            "type": "number",
+            "title": "Deviation"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "higher",
+              "lower"
+            ],
+            "title": "Direction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "actual_value",
+          "dataset_median",
+          "deviation",
+          "direction"
+        ],
+        "title": "ContributingFeature"
+      },
+      "CostStats": {
+        "properties": {
+          "has_cost_data": {
+            "type": "boolean",
+            "title": "Has Cost Data"
+          },
+          "total_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Cost"
+          },
+          "average_cost_per_entry": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Cost Per Entry"
+          },
+          "derived_cost_per_kwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived Cost Per Kwh"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_cost_data",
+          "note"
+        ],
+        "title": "CostStats"
+      },
+      "DataQualitySummary": {
+        "properties": {
+          "total_input_rows": {
+            "type": "integer",
+            "title": "Total Input Rows"
+          },
+          "accepted_rows": {
+            "type": "integer",
+            "title": "Accepted Rows"
+          },
+          "corrected_rows": {
+            "type": "integer",
+            "title": "Corrected Rows"
+          },
+          "rejected_rows": {
+            "type": "integer",
+            "title": "Rejected Rows"
+          },
+          "rejection_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rejection Reasons"
+          },
+          "correction_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Correction Reasons"
+          },
+          "example_rejections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Example Rejections"
+          },
+          "granularity": {
+            "type": "string",
+            "title": "Granularity",
+            "default": "unknown"
+          },
+          "missing_values_per_column": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Missing Values Per Column"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_input_rows",
+          "accepted_rows",
+          "corrected_rows",
+          "rejected_rows"
+        ],
+        "title": "DataQualitySummary",
+        "description": "Data quality and cleaning metrics."
+      },
+      "DatasetDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "display_filename": {
+            "type": "string",
+            "title": "Display Filename"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataQualitySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "column_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnMappingInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_filename",
+          "file_type",
+          "created_at",
+          "record_count",
+          "status"
+        ],
+        "title": "DatasetDetailResponse",
+        "description": "Detailed information for a single dataset."
+      },
+      "DatasetItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "display_filename": {
+            "type": "string",
+            "title": "Display Filename"
+          },
+          "file_type": {
+            "type": "string",
+            "title": "File Type"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_filename",
+          "file_type",
+          "created_at",
+          "record_count",
+          "status"
+        ],
+        "title": "DatasetItem",
+        "description": "Summary of a stored dataset."
+      },
+      "DatasetListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "items"
+        ],
+        "title": "DatasetListResponse",
+        "description": "Paginated list of datasets."
+      },
+      "EnergyAnalysisResponse": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "statistics": {
+            "$ref": "#/components/schemas/ConsumptionStats"
+          },
+          "cost_statistics": {
+            "$ref": "#/components/schemas/CostStats"
+          },
+          "baseline_comparison": {
+            "$ref": "#/components/schemas/BaselineComparison"
+          },
+          "breakdown_by_building": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breakdown By Building"
+          },
+          "breakdown_by_department": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breakdown By Department"
+          },
+          "breakdown_by_equipment": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breakdown By Equipment"
+          },
+          "periodic_summary": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Periodic Summary"
+          },
+          "high_consumption_records": {
+            "items": {
+              "$ref": "#/components/schemas/HighConsumptionRecord"
+            },
+            "type": "array",
+            "title": "High Consumption Records"
+          },
+          "data_quality_summary": {
+            "$ref": "#/components/schemas/DataQualitySummary"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "statistics",
+          "cost_statistics",
+          "baseline_comparison",
+          "data_quality_summary",
+          "limitations"
+        ],
+        "title": "EnergyAnalysisResponse",
+        "description": "Complete energy analysis response."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "database_connected": {
+            "type": "boolean",
+            "title": "Database Connected"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "database_connected",
+          "timestamp"
+        ],
+        "title": "HealthResponse",
+        "description": "Health check response.",
+        "example": {
+          "database_connected": true,
+          "status": "healthy",
+          "timestamp": "2026-10-21T08:00:00Z",
+          "version": "1.0.0"
+        }
+      },
+      "HighConsumptionRecord": {
+        "properties": {
+          "row_id": {
+            "type": "integer",
+            "title": "Row Id"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "energy_kwh": {
+            "type": "number",
+            "title": "Energy Kwh"
+          },
+          "building": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Building"
+          },
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment"
+          },
+          "deviation_score": {
+            "type": "number",
+            "title": "Deviation Score"
+          },
+          "baseline_value": {
+            "type": "number",
+            "title": "Baseline Value"
+          },
+          "deviation_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_id",
+          "date",
+          "energy_kwh",
+          "deviation_score",
+          "baseline_value"
+        ],
+        "title": "HighConsumptionRecord",
+        "description": "Record flagged for unusually high consumption via robust statistics."
+      },
+      "ModelInfo": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "ai_isolation_forest",
+              "rule_based_iqr"
+            ],
+            "title": "Method"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "features_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features Used"
+          },
+          "features_dropped": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Features Dropped"
+          },
+          "n_records": {
+            "type": "integer",
+            "title": "N Records"
+          },
+          "random_seed": {
+            "type": "integer",
+            "title": "Random Seed"
+          },
+          "trained_at": {
+            "type": "string",
+            "title": "Trained At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithm",
+          "method",
+          "parameters",
+          "features_used",
+          "n_records",
+          "random_seed",
+          "trained_at"
+        ],
+        "title": "ModelInfo"
+      },
+      "RecommendationItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "issue_detected": {
+            "type": "string",
+            "title": "Issue Detected"
+          },
+          "supporting_measurements": {
+            "items": {
+              "$ref": "#/components/schemas/SupportingMeasurement"
+            },
+            "type": "array",
+            "title": "Supporting Measurements"
+          },
+          "suggested_action": {
+            "type": "string",
+            "title": "Suggested Action"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Priority"
+          },
+          "estimated_savings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Savings"
+          },
+          "evidence_level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Evidence Level"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "required_additional_data": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Additional Data"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "issue_detected",
+          "supporting_measurements",
+          "suggested_action",
+          "priority",
+          "evidence_level",
+          "explanation",
+          "limitations"
+        ],
+        "title": "RecommendationItem"
+      },
+      "RecommendationsResponse": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "total_recommendations": {
+            "type": "integer",
+            "title": "Total Recommendations"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationItem"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "total_recommendations",
+          "recommendations",
+          "limitations"
+        ],
+        "title": "RecommendationsResponse"
+      },
+      "SupportingMeasurement": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "comparison_baseline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparison Baseline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric",
+          "value",
+          "unit"
+        ],
+        "title": "SupportingMeasurement"
+      },
+      "UploadResponse": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "record_count": {
+            "type": "integer",
+            "title": "Record Count"
+          },
+          "columns": {
+            "$ref": "#/components/schemas/ColumnMappingInfo"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/DataQualitySummary"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "preview_rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Preview Rows"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "record_count",
+          "columns",
+          "data_quality",
+          "limitations"
+        ],
+        "title": "UploadResponse",
+        "description": "Response returned upon successful file upload and preprocessing.",
+        "example": {
+          "columns": {
+            "detected": [
+              "date",
+              "building",
+              "kwh",
+              "cost"
+            ],
+            "mapped": {
+              "building": "building",
+              "cost": "cost",
+              "date": "date",
+              "kwh": "energy_kwh"
+            },
+            "unmapped": []
+          },
+          "data_quality": {
+            "accepted_rows": 270,
+            "corrected_rows": 1,
+            "correction_reasons": {
+              "duplicate_row_removed": 1
+            },
+            "example_rejections": [],
+            "granularity": "daily",
+            "missing_values_per_column": {
+              "operating_hours": 270
+            },
+            "rejected_rows": 0,
+            "rejection_reasons": {},
+            "total_input_rows": 271
+          },
+          "dataset_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "limitations": "Core Principle: A flagged anomaly is only a possible sign of energy waste...",
+          "preview_rows": [],
+          "record_count": 270,
+          "warnings": [
+            "Converted Wh to kWh for energy column."
+          ]
+        }
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
